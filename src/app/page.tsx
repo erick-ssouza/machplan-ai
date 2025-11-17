@@ -2,49 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-"use client";
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
-
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleLogin(e) {
-    e.preventDefault();
-    setLoading(true);
-
-    const { error } = await supabase.auth.signInWithOtp({ email });
-
-    if (error) alert(error.message);
-    else alert("Email enviado! Verifique sua caixa de entrada.");
-
-    setLoading(false);
-  }
-
-  return (
-    <div style={{ maxWidth: 400, margin: "0 auto", padding: 20 }}>
-      <h1>Entrar</h1>
-      <form onSubmit={handleLogin}>
-        <input
-          type="email"
-          placeholder="Seu email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{ width: "100%", padding: 10, marginBottom: 10 }}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          style={{ width: "100%", padding: 10 }}
-        >
-          {loading ? "Enviando..." : "Entrar"}
-        </button>
-      </form>
-    </div>
-  );
-}
-
+import { Auth } from '@supabase/auth-ui-react'
+import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { User } from '@supabase/supabase-js'
 import Dashboard from '@/components/dashboard'
 import { Loader2, Cpu, Shield, Zap, FileText, Settings, TrendingUp } from 'lucide-react'
@@ -156,40 +115,44 @@ export default function Home() {
                     <p className="text-slate-400 text-sm">Entre para acessar sua conta</p>
                   </div>
 
-                  <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/10 w-full max-w-md mx-auto">
-    <h2 className="text-2xl font-semibold mb-4 text-center">Entrar</h2>
-
-    <input
-        type="email"
-        placeholder="Email"
-        className="w-full p-3 rounded mb-3 bg-white/20"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-    />
-
-    <input
-        type="password"
-        placeholder="Senha"
-        className="w-full p-3 rounded mb-3 bg-white/20"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-    />
-
-    <button
-        onClick={handleLogin}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded font-medium"
-    >
-        Entrar
-    </button>
-
-    <button
-        onClick={handleSignup}
-        className="w-full bg-green-600 hover:bg-green-700 text-white p-3 rounded font-medium mt-3"
-    >
-        Criar conta
-    </button>
-</div>
-
+                  <Auth
+                    supabaseClient={supabase}
+                    appearance={{
+                      theme: ThemeSupa,
+                      variables: {
+                        default: {
+                          colors: {
+                            brand: '#06b6d4',
+                            brandAccent: '#0891b2',
+                          },
+                        },
+                      },
+                      className: {
+                        container: 'auth-container',
+                        button: 'auth-button',
+                        input: 'auth-input',
+                      },
+                    }}
+                    localization={{
+                      variables: {
+                        sign_in: {
+                          email_label: 'Email',
+                          password_label: 'Senha',
+                          button_label: 'Entrar',
+                          loading_button_label: 'Entrando...',
+                          link_text: 'Já tem uma conta? Entre',
+                        },
+                        sign_up: {
+                          email_label: 'Email',
+                          password_label: 'Senha',
+                          button_label: 'Criar conta',
+                          loading_button_label: 'Criando conta...',
+                          link_text: 'Não tem conta? Cadastre-se',
+                        },
+                      },
+                    }}
+                    providers={[]}
+                  />
 
                   <div className="mt-6 pt-6 border-t border-white/10">
                     <p className="text-center text-slate-400 text-xs flex items-center justify-center gap-2">
