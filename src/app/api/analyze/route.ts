@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
 
 export async function POST(request: NextRequest) {
   try {
     const { imageUrl, material, processType, userTools } = await request.json()
+
+    if (!process.env.DEEPINFRA_API_KEY) {
+      return NextResponse.json(
+        { error: "DEEPINFRA_API_KEY não configurada." },
+        { status: 500 }
+      )
+    }
 
     const systemPrompt = `Você é um especialista em usinagem CNC com décadas de experiência. Analise o desenho técnico fornecido e identifique todos os recursos de usinagem presentes.
 
@@ -66,36 +68,49 @@ Retorne um JSON estruturado com:
   }
 }`
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt
+    const userMessage = `Analise este desenho técnico e gere o plano de usinagem completo.
+
+Imagem: ${imageUrl}
+
+${systemPrompt}`
+
+    const response = await fetch(
+      "https://api.deepinfra.com/v1/openai/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.DEEPINFRA_API_KEY}`,
         },
-        {
-          role: 'user',
-          content: [
+        body: JSON.stringify({
+          model: "meta-llama/Meta-Llama-3.1-70B-Instruct",
+          messages: [
             {
-              type: 'text',
-              text: 'Analise este desenho técnico e gere o plano de usinagem completo.'
+              role: "system",
+              content: "Você é um especialista em usinagem CNC. Sempre retorne respostas em formato JSON válido."
             },
             {
-              type: 'image_url',
-              image_url: {
-                url: imageUrl
-              }
+              role: "user",
+              content: userMessage
             }
-          ]
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-    })
+          ],
+          max_tokens: 3000,
+          temperature: 0.3,
+          response_format: { type: "json_object" }
+        }),
+      }
+    )
 
-    const result = JSON.parse(response.choices[0].message.content || '{}')
+    const result = await response.json()
+
+    if (result.error) {
+      return NextResponse.json({ error: result.error }, { status: 500 })
+    }
+
+    const content = result.choices?.[0]?.message?.content || '{}'
+    const parsedResult = JSON.parse(content)
     
-    return NextResponse.json(result)
+    return NextResponse.json(parsedResult)
   } catch (error: any) {
     console.error('Erro na análise:', error)
     return NextResponse.json(

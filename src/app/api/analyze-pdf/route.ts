@@ -1,48 +1,151 @@
-import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { NextRequest, NextResponse } from "next/server";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const { pdfText, material, processType, userTools } = await request.json()
+    const body = await req.json();
+    const { text, material, process, tools } = body;
 
-    const systemPrompt = `Você é um especialista em usinagem CNC. Analise o texto extraído do desenho técnico PDF e identifique todos os recursos de usinagem.
+    if (!process.env.DEEPINFRA_API_KEY) {
+      return NextResponse.json(
+        { error: "DEEPINFRA_API_KEY não configurada." },
+        { status: 500 }
+      );
+    }
 
-Material da peça: ${material}
-Processo solicitado: ${processType === 'milling' ? 'Fresamento' : processType === 'turning' ? 'Torneamento' : 'Processo completo'}
+    // Logs antes da chamada
+    console.log("Deepinfra key loaded:", !!process.env.DEEPINFRA_API_KEY);
+    console.log("Model: meta-llama/Meta-Llama-3.1-70B-Instruct");
+    console.log("Calling Deepinfra...");
 
-Ferramentas disponíveis:
-${JSON.stringify(userTools, null, 2)}
+    const prompt = `
+Você é um sistema de análise jurídica. Abaixo estão os dados extraídos de um PDF:
+Texto do PDF: ${text}
+Material: ${material}
+Tipo de Processo: ${process}
+Ferramentas do usuário: ${tools}
 
-Retorne um JSON estruturado com features e machining_plan conforme o formato padrão.`
+Gere uma análise completa e organizada, com linguagem clara e objetiva.
+    `;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
+    try {
+      const response = await fetch(
+        "https://api.deepinfra.com/v1/openai/chat/completions",
         {
-          role: 'system',
-          content: systemPrompt
-        },
-        {
-          role: 'user',
-          content: `Texto do PDF:\n\n${pdfText}`
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.DEEPINFRA_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "meta-llama/Meta-Llama-3.1-70B-Instruct",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 1500,
+            temperature: 0.2,
+          }),
         }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-    })
+      );
 
-    const result = JSON.parse(response.choices[0].message.content || '{}')
-    
-    return NextResponse.json(result)
+      const result = await response.json();
+
+      if (result.error) {
+        return NextResponse.json({ 
+          success: false,
+          error: result.error,
+          details: result
+        }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        output: result.choices?.[0]?.message?.content || "",
+      });
+    } catch (error: any) {
+      console.error("Erro na chamada DeepInfra:", error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+        details: error
+      }, { status: 500 });
+    }
   } catch (error: any) {
-    console.error('Erro na análise PDF:', error)
     return NextResponse.json(
-      { error: error.message || 'Erro ao analisar PDF' },
+      { 
+        success: false,
+        error: error.message || "Erro ao analisar PDF",
+        details: error
+      },
       { status: 500 }
-    )
+    );
+  }
+}
+
+// Rota GET para teste simples
+export async function GET() {
+  try {
+    if (!process.env.DEEPINFRA_API_KEY) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: "DEEPINFRA_API_KEY não configurada." 
+        },
+        { status: 500 }
+      );
+    }
+
+    console.log("Teste de conexão - Deepinfra key loaded:", !!process.env.DEEPINFRA_API_KEY);
+    console.log("Teste de conexão - Model: meta-llama/Meta-Llama-3.1-70B-Instruct");
+    console.log("Teste de conexão - Calling Deepinfra...");
+
+    try {
+      const response = await fetch(
+        "https://api.deepinfra.com/v1/openai/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.DEEPINFRA_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "meta-llama/Meta-Llama-3.1-70B-Instruct",
+            messages: [{ role: "user", content: "Teste de conexão com a DeepInfra" }],
+            max_tokens: 100,
+            temperature: 0.2,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.error) {
+        return NextResponse.json({ 
+          success: false,
+          error: result.error,
+          details: result
+        }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Conexão com DeepInfra estabelecida com sucesso!",
+        testResponse: result.choices?.[0]?.message?.content || "",
+        model: "meta-llama/Meta-Llama-3.1-70B-Instruct"
+      });
+    } catch (error: any) {
+      console.error("Erro no teste de conexão DeepInfra:", error);
+      return NextResponse.json({
+        success: false,
+        error: error.message,
+        details: error
+      }, { status: 500 });
+    }
+  } catch (error: any) {
+    return NextResponse.json(
+      { 
+        success: false,
+        error: error.message || "Erro no teste de conexão",
+        details: error
+      },
+      { status: 500 }
+    );
   }
 }

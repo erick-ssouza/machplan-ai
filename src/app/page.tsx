@@ -102,7 +102,7 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-2 text-slate-300 text-sm">
                     <Cpu className="w-4 h-4 text-cyan-400" />
-                    <span>Powered by OpenAI</span>
+                    <span>Powered by DeepInfra AI</span>
                   </div>
                 </div>
               </div>
